@@ -4,13 +4,15 @@ on:
   push:
     branches:
       - main
+
   schedule:
-    - cron: '00 16 * * *'  # 北京时间 00:00 (UTC+8)，对应UTC时间 16:00
+    - cron: '00 16 * * *'  # 北京时间 00:00 (UTC+8)
+
   workflow_dispatch:
 
 permissions:
-  contents: read
-  actions: write  # 添加写入Actions变量的权限
+  contents: write
+  actions: write
 
 jobs:
   run-nodeseek-sign:
@@ -18,10 +20,10 @@ jobs:
 
     steps:
       - name: 检出代码仓库
-        uses: actions/checkout@v3
-      
+        uses: actions/checkout@v7
+
       - name: 配置Python环境
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11.8'
 
@@ -29,13 +31,12 @@ jobs:
         run: |
           pip install curl_cffi requests --upgrade
 
-
       - name: 运行签到脚本
         env:
           # 基本账号
           USER: ${{ secrets.USER }}
           PASS: ${{ secrets.PASS }}
-          
+
           # 额外账号1-5
           USER1: ${{ secrets.USER1 }}
           PASS1: ${{ secrets.PASS1 }}
@@ -47,19 +48,20 @@ jobs:
           PASS4: ${{ secrets.PASS4 }}
           USER5: ${{ secrets.USER5 }}
           PASS5: ${{ secrets.PASS5 }}
-          
+
           # Cookie配置
           NS_COOKIE: ${{ vars.NS_COOKIE || secrets.NS_COOKIE }}
           NS_RANDOM: ${{ secrets.NS_RANDOM }}
+
           # 验证码配置
           SOLVER_TYPE: ${{ secrets.SOLVER_TYPE }}
           API_BASE_URL: ${{ secrets.API_BASE_URL }}
           CLIENTT_KEY: ${{ secrets.CLIENTT_KEY }}
-          
+
           # GitHub API配置
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          
+
           # 指纹配置
           NS_IMPERSONATE: ${{ secrets.NS_IMPERSONATE || 'chrome110' }}
 
@@ -67,4 +69,25 @@ jobs:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_USER_ID: ${{ secrets.TG_USER_ID }}
           TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
+
         run: python nodeseek_sign.py
+
+      # 每月自动产生一次 commit，避免仓库长期无活动
+      - name: 保持仓库活跃
+        if: ${{ always() && github.event_name == 'schedule' }}
+        run: |
+          DAY=$(date -u +%d)
+
+          if [ "$DAY" != "01" ]; then
+            echo "今天不是每月保活日期，跳过。"
+            exit 0
+          fi
+
+          echo "Keep alive: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > .github/keepalive
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .github/keepalive
+          git commit -m "chore: keep repository active"
+          git push
