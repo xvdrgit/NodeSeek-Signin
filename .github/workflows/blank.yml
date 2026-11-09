@@ -25,7 +25,7 @@ jobs:
       - name: 配置Python环境
         uses: actions/setup-python@v7
         with:
-          python-version: '3.11.8'
+          python-version: '3.11'
 
       - name: 安装依赖包
         run: |
